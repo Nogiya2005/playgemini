@@ -27,12 +27,11 @@ class MyApp extends StatelessWidget {
   }
 }
 
-String oldState = "";
-
 class MainPage extends HookConsumerWidget {
   const MainPage({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final oldState = useRef("");
     final resultsw = useState(false);
     final loadingsw = useState<bool>(false);
     final percentdata = useState<String>("");
@@ -41,35 +40,19 @@ class MainPage extends HookConsumerWidget {
     final image = useState<File?>(null);
     final aiEssaystext = useState<String>("");
     final aiSuggestedtext = useState<String>("");
-    String? apiKey;
-    GenerativeModel? model;
-    void creatmodel() {
+
+    createmodel() {
       debugPrint("モデル作成");
-      apiKey = "AIzaSyCCNA6dVfOOna2aQeV7yAmBS7eWbUkpnK4";
-      if (apiKey == null) {
-        debugPrint("apikeyがない");
-      }
-      model = GenerativeModel(model: "gemini-pro-vision", apiKey: apiKey!);
+      String apiKey = "AIzaSyCCNA6dVfOOna2aQeV7yAmBS7eWbUkpnK4";
+      return GenerativeModel(model: "gemini-pro-vision", apiKey: apiKey);
     }
+
+    final model = useMemoized(() => createmodel(), []);
 
     void getImageFromCamera() async {
       final pickedFile = await picker.pickImage(source: ImageSource.camera);
       if (pickedFile != null) {
         image.value = File(pickedFile.path);
-        if (oldState == "") {
-          debugPrint("保存");
-          var newState = image.value;
-          oldState = newState.toString();
-        } else {
-          if (oldState == image.value.toString()) {
-            resultsw.value = true;
-          } else {
-            resultsw.value = false;
-            percentdata.value = "";
-            aiEssaystext.value = "";
-            aiSuggestedtext.value = "";
-          }
-        }
       }
     }
 
@@ -77,32 +60,39 @@ class MainPage extends HookConsumerWidget {
       final pickedFile = await picker.pickImage(source: ImageSource.gallery);
       if (pickedFile != null) {
         image.value = File(pickedFile.path);
-        if (oldState == "") {
-          debugPrint(oldState);
-          debugPrint("保存");
-          var newState = image.value;
-          debugPrint(newState.toString());
-          oldState = newState.toString();
+      }
+    }
+
+    void valuereset() {
+      percentdata.value = "";
+      aiEssaystext.value = "";
+      aiSuggestedtext.value = "";
+    }
+
+    void statechange() {
+      if (oldState.value == "") {
+        debugPrint("保存");
+        var newState = image.value.toString();
+        oldState.value = newState;
+      } else {
+        if (oldState.value == image.value.toString()) {
+          resultsw.value = true;
         } else {
-          if (oldState == image.value.toString()) {
-            resultsw.value = true;
-          } else {
-            resultsw.value = false;
-            percentdata.value = "";
-            aiEssaystext.value = "";
-            aiSuggestedtext.value = "";
-          }
+          resultsw.value = false;
+          editcontroller.text = "";
+          valuereset();
         }
       }
     }
 
+    useValueChanged(image.value, (oldValue, oldResult) => statechange());
+
     void Essaysdata(File imagedata, String text) async {
       debugPrint("送信");
-      creatmodel();
       final image = await imagedata.readAsBytes();
       final prompt = TextPart("この$textの評価をしてください。");
       final imageParts = DataPart('image/jpeg', image);
-      final response = await model!.generateContent([
+      final response = await model.generateContent([
         Content.multi([prompt, imageParts])
       ]);
       debugPrint(response.text);
@@ -111,11 +101,10 @@ class MainPage extends HookConsumerWidget {
 
     void Suggesteddata(File imagedata, String text) async {
       debugPrint("送信");
-      creatmodel();
       final image = await imagedata.readAsBytes();
       final prompt = TextPart("この$textをもっとおいしそうに見せるにはどこを改善したらよいですか？");
       final imageParts = DataPart('image/jpeg', image);
-      final response = await model!.generateContent([
+      final response = await model.generateContent([
         Content.multi([prompt, imageParts])
       ]);
       debugPrint(response.text);
@@ -123,15 +112,18 @@ class MainPage extends HookConsumerWidget {
     }
 
     void getdata(File imagedata, String text) async {
+      valuereset();
       loadingsw.value = true;
       debugPrint("送信");
       final image = await imagedata.readAsBytes();
       final prompt =
           TextPart("これは$textです。一致度は何％ですか？数値で答えてください。料理以外の場合は0%と答えてください");
       final imageParts = DataPart('image/jpeg', image);
-      final response = await model!.generateContent([
+      final response = await model.generateContent([
         Content.multi([prompt, imageParts])
       ]);
+      Essaysdata(imagedata, text);
+      Suggesteddata(imagedata, text);
       debugPrint(response.text);
       loadingsw.value = false;
       percentdata.value = response.text!.replaceAll(RegExp(r"[^0-9]"), "");
@@ -249,6 +241,9 @@ class MainPage extends HookConsumerWidget {
                           decoration: const InputDecoration(
                               hintText: "料理名",
                               hintStyle: TextStyle(fontSize: 30)),
+                          onChanged: (data) {
+                            valuereset();
+                          },
                         ))),
                 IconButton(
                   onPressed: () {
@@ -268,14 +263,7 @@ class MainPage extends HookConsumerWidget {
                   onPressed: loadingsw.value == true
                       ? null
                       : () {
-                          if (model == null) {
-                            creatmodel();
-                          }
                           try {
-                            if (model == null) {
-                              debugPrint("モデルがない");
-                              throw ("接続されていません");
-                            }
                             if (image.value == null) {
                               debugPrint("画像がない");
                               throw ("画像を選択してください");
