@@ -64,6 +64,7 @@ class MainPage extends HookConsumerWidget {
     }
 
     void valuereset() {
+      resultsw.value = false;
       percentdata.value = "";
       aiEssaystext.value = "";
       aiSuggestedtext.value = "";
@@ -90,7 +91,7 @@ class MainPage extends HookConsumerWidget {
     void Essaysdata(File imagedata, String text) async {
       debugPrint("送信");
       final image = await imagedata.readAsBytes();
-      final prompt = TextPart("この$textの評価をしてください。");
+      final prompt = TextPart("この$textの評価をしてください。点数はつけないでください。");
       final imageParts = DataPart('image/jpeg', image);
       final response = await model.generateContent([
         Content.multi([prompt, imageParts])
@@ -111,19 +112,22 @@ class MainPage extends HookConsumerWidget {
       aiSuggestedtext.value = response.text!;
     }
 
+    final isSelected = useRef([false, true]);
+    final sw = useState(true);
+
     void getdata(File imagedata, String text) async {
       valuereset();
+      Essaysdata(imagedata, text);
+      Suggesteddata(imagedata, text);
       loadingsw.value = true;
       debugPrint("送信");
       final image = await imagedata.readAsBytes();
-      final prompt =
-          TextPart("これは$textです。一致度は何％ですか？数値で答えてください。料理以外の場合は0%と答えてください");
+      final prompt = TextPart(
+          "これは$textです。見た目は何点ですか？100点満点で点数だけ答えてください。食べられるもの以外は０％と答えてください");
       final imageParts = DataPart('image/jpeg', image);
       final response = await model.generateContent([
         Content.multi([prompt, imageParts])
       ]);
-      Essaysdata(imagedata, text);
-      Suggesteddata(imagedata, text);
       debugPrint(response.text);
       loadingsw.value = false;
       percentdata.value = response.text!.replaceAll(RegExp(r"[^0-9]"), "");
@@ -136,157 +140,176 @@ class MainPage extends HookConsumerWidget {
         title: const Text("評価画面"),
         centerTitle: true,
         backgroundColor: Colors.blue,
+        actions: [
+          ToggleButtons(
+            color: Colors.red,
+            borderWidth: 2,
+            borderColor: Colors.amber,
+            borderRadius: BorderRadius.circular(5.0),
+            selectedColor: Colors.white,
+            selectedBorderColor: Colors.black54,
+            fillColor: Colors.red,
+            isSelected: isSelected.value,
+            children: const [
+              Padding(
+                padding: EdgeInsets.all(3),
+                child: Text('画像'),
+              ),
+              Padding(
+                padding: EdgeInsets.all(3),
+                child: Text('画像＆\n料理名'),
+              ),
+            ],
+            onPressed: (index) {
+              isSelected.value[index] = !isSelected.value[index];
+              if (index == 0) {
+                isSelected.value[1] = !isSelected.value[1];
+              } else {
+                isSelected.value[0] = !isSelected.value[0];
+              }
+              sw.value = !sw.value;
+            },
+          ),
+        ],
       ),
-      body: Stack(children: [
-        SingleChildScrollView(
-            child: Center(
-                child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            image.value == null
-                ? const Text(
-                    "料理の写真を選択してね",
-                    style: TextStyle(fontSize: 30),
-                  )
-                : SizedBox(
-                    height: 200,
-                    width: 300,
-                    child: Image.file(
-                      image.value!,
-                      fit: BoxFit.contain,
-                    )),
-            loadingsw.value
-                ? const Padding(
-                    padding: EdgeInsets.all(5),
-                    child: CircularProgressIndicator(
-                      color: Colors.green,
-                    ))
-                : percentdata.value.isEmpty
-                    ? const SizedBox()
+      body: SingleChildScrollView(
+          child: Center(
+              child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          image.value == null
+              ? const Text(
+                  "料理の写真を選択してね",
+                  style: TextStyle(fontSize: 30),
+                )
+              : SizedBox(
+                  height: 200,
+                  width: 300,
+                  child: Image.file(
+                    image.value!,
+                    fit: BoxFit.contain,
+                  )),
+          loadingsw.value
+              ? const Padding(
+                  padding: EdgeInsets.all(5),
+                  child: CircularProgressIndicator(
+                    color: Colors.green,
+                  ))
+              : percentdata.value.isEmpty
+                  ? const SizedBox()
+                  : Text(
+                      "${percentdata.value}点",
+                      style: const TextStyle(fontSize: 60),
+                    ),
+          if (resultsw.value == true)
+            ExpansionTile(
+              title: const Text(
+                '評価',
+                style: TextStyle(fontSize: 30),
+              ),
+              children: <Widget>[
+                aiEssaystext.value.isEmpty
+                    ? const Padding(
+                        padding: EdgeInsets.all(5),
+                        child: CircularProgressIndicator(
+                          color: Colors.green,
+                        ))
                     : Text(
-                        "${percentdata.value}%",
-                        style: const TextStyle(fontSize: 60),
-                      ),
-            if (resultsw.value == true)
-              ExpansionTile(
-                onExpansionChanged: (value) {
-                  if (aiEssaystext.value.isEmpty == true) {
-                    Essaysdata(image.value!, editcontroller.text);
-                  }
-                },
-                title: const Text(
-                  '評価',
-                  style: TextStyle(fontSize: 30),
-                ),
-                children: <Widget>[
-                  aiEssaystext.value.isEmpty
-                      ? const Padding(
-                          padding: EdgeInsets.all(5),
-                          child: CircularProgressIndicator(
-                            color: Colors.green,
-                          ))
-                      : Text(
-                          aiEssaystext.value,
-                          style: const TextStyle(fontSize: 20),
-                        )
-                ],
-              ),
-            if (resultsw.value == true)
-              ExpansionTile(
-                onExpansionChanged: (value) {
-                  if (aiSuggestedtext.value.isEmpty == true) {
-                    Suggesteddata(image.value!, editcontroller.text);
-                  }
-                },
-                title: const Text(
-                  '改善案',
-                  style: TextStyle(fontSize: 30),
-                ),
-                children: <Widget>[
-                  aiSuggestedtext.value.isEmpty
-                      ? const Padding(
-                          padding: EdgeInsets.all(5),
-                          child: CircularProgressIndicator(
-                            color: Colors.green,
-                          ))
-                      : Text(
-                          aiSuggestedtext.value,
-                          style: const TextStyle(fontSize: 20),
-                        )
-                ],
-              ),
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: Container(
-                width: MediaQuery.of(context).size.width,
-                height: 100,
-              ),
-            )
-          ],
-        ))),
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: Container(
-            width: MediaQuery.of(context).size.width,
-            height: 100,
-            color: Colors.blue,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Expanded(
-                    child: Padding(
-                        padding: const EdgeInsets.fromLTRB(5, 0, 5, 0),
-                        child: TextFormField(
-                          controller: editcontroller,
-                          decoration: const InputDecoration(
-                              hintText: "料理名",
-                              hintStyle: TextStyle(fontSize: 30)),
-                          onChanged: (data) {
-                            valuereset();
-                          },
-                        ))),
-                IconButton(
-                  onPressed: () {
-                    getImageFromCamera();
-                  },
-                  icon: const Icon(Icons.photo_camera),
-                  iconSize: 40,
-                ),
-                IconButton(
-                  onPressed: () {
-                    getImageFromGallery();
-                  },
-                  icon: const Icon(Icons.photo_album),
-                  iconSize: 40,
-                ),
-                IconButton(
-                  onPressed: loadingsw.value == true
-                      ? null
-                      : () {
-                          try {
-                            if (image.value == null) {
-                              debugPrint("画像がない");
-                              throw ("画像を選択してください");
-                            } else if (editcontroller.text.isEmpty == true) {
-                              debugPrint("料理名がない");
-                              throw ("料理名を入力してください");
-                            }
-                            getdata(image.value!, editcontroller.text);
-                          } catch (e) {
-                            Fluttertoast.showToast(
-                              msg: e.toString(),
-                              fontSize: 18,
-                            );
-                          }
-                        },
-                  icon: const Icon(Icons.send),
-                  iconSize: 40,
-                ),
+                        aiEssaystext.value,
+                        style: const TextStyle(fontSize: 20),
+                      )
               ],
             ),
-          ),
-        )
-      ]),
+          if (resultsw.value == true)
+            ExpansionTile(
+              title: const Text(
+                '改善案',
+                style: TextStyle(fontSize: 30),
+              ),
+              children: <Widget>[
+                aiSuggestedtext.value.isEmpty
+                    ? const Padding(
+                        padding: EdgeInsets.all(5),
+                        child: CircularProgressIndicator(
+                          color: Colors.green,
+                        ))
+                    : Text(
+                        aiSuggestedtext.value,
+                        style: const TextStyle(fontSize: 20),
+                      )
+              ],
+            ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: SizedBox(
+              width: MediaQuery.of(context).size.width,
+              height: 100,
+            ),
+          )
+        ],
+      ))),
+      bottomSheet: Container(
+        width: MediaQuery.of(context).size.width,
+        height: 100,
+        color: Colors.blue,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (sw.value == true)
+              Expanded(
+                  child: Padding(
+                      padding: const EdgeInsets.fromLTRB(5, 0, 5, 0),
+                      child: TextFormField(
+                        controller: editcontroller,
+                        decoration: const InputDecoration(
+                            hintText: "料理名",
+                            hintStyle: TextStyle(fontSize: 30)),
+                        onChanged: (data) {
+                          valuereset();
+                        },
+                      ))),
+            IconButton(
+              onPressed: () {
+                getImageFromCamera();
+              },
+              icon: const Icon(Icons.photo_camera),
+              iconSize: 40,
+            ),
+            IconButton(
+              onPressed: () {
+                getImageFromGallery();
+              },
+              icon: const Icon(Icons.photo_album),
+              iconSize: 40,
+            ),
+            IconButton(
+              onPressed: loadingsw.value == true
+                  ? null
+                  : () {
+                      try {
+                        if (image.value == null) {
+                          debugPrint("画像がない");
+                          throw ("画像を選択してください");
+                        } else if (editcontroller.text.isEmpty == true &&
+                            sw.value == true) {
+                          debugPrint("料理名がない");
+                          throw ("料理名を入力してください");
+                        }
+                        //Todo:swがfalseのときの処理を追加する
+                        getdata(image.value!, editcontroller.text);
+                      } catch (e) {
+                        Fluttertoast.showToast(
+                          msg: e.toString(),
+                          fontSize: 18,
+                        );
+                      }
+                    },
+              icon: const Icon(Icons.send),
+              iconSize: 40,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
