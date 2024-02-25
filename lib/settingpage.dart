@@ -37,8 +37,24 @@ class SettingsPage extends HookConsumerWidget {
         sections: [
           SettingsSection(
             title: const Text('セクション'),
-            tiles: [SettingsTile.navigation(title: const Text('text'))],
-          )
+            tiles: [
+              SettingsTile.navigation(
+                title: const Text('ライセンス'),
+                leading: const Icon(Icons.edit),
+                onPressed: (context) {},
+              ),
+              SettingsTile.navigation(
+                title: const Text('注意事項'),
+                leading: const Icon(Icons.edit),
+                onPressed: (context) {},
+              ),
+              SettingsTile.navigation(
+                title: const Text('編集'),
+                leading: const Icon(Icons.edit),
+                onPressed: (context) {},
+              ),
+            ],
+          ),
         ],
       ),
     );

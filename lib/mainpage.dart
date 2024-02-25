@@ -160,7 +160,6 @@ class MainPage extends HookConsumerWidget {
                 )
               : SizedBox(
                   height: 200,
-                  width: 300,
                   child: Image.file(
                     image.value!,
                     fit: BoxFit.contain,
