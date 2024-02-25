@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:playgemini/mainpage.dart';
 import 'package:settings_ui/settings_ui.dart';
 
 class SettingsPage extends HookConsumerWidget {
@@ -17,7 +18,10 @@ class SettingsPage extends HookConsumerWidget {
           PopupMenuButton<String>(
               initialValue: selectedValue,
               onSelected: (String s) {
-                // Navigator.push(context, MaterialPageRoute(builder: (build)=>))
+                if (s == "メイン") {
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (build) => const MainPage()));
+                } else if (s == "広告off") {}
               },
               itemBuilder: (BuildContext context) {
                 return usStates.map((String s) {
